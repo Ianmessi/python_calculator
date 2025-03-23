@@ -2,6 +2,7 @@ import streamlit as st
 import math
 import re
 import copy
+import ast
 
 # Set page configuration
 st.set_page_config(
@@ -10,89 +11,96 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Custom CSS for better styling
+# Custom CSS for better styling - improved colors and layout
 st.markdown("""
 <style>
     .calculator-container {
-        max-width: 350px;
+        max-width: 320px;
         margin: 0 auto;
-        background-color: #1C1C1E;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+        background-color: #202020;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
     .display-area {
         background-color: #1C1C1E;
         color: white;
-        border-radius: 10px;
-        margin-bottom: 20px;
+        border-radius: 5px;
+        margin-bottom: 15px;
         padding: 10px;
         text-align: right;
         font-family: Arial, sans-serif;
-        min-height: 90px;
+        min-height: 80px;
         border: 1px solid #333;
     }
     .expression-display {
-        min-height: 25px;
+        min-height: 20px;
         color: #8a8a8a;
-        font-size: 18px;
+        font-size: 16px;
         margin-bottom: 5px;
         overflow-wrap: break-word;
     }
     .result-display {
-        min-height: 50px;
-        font-size: 36px;
+        min-height: 40px;
+        font-size: 32px;
         font-weight: bold;
         overflow-wrap: break-word;
     }
-    .stButton > button {
-        width: 100%;
-        height: 55px;
-        font-size: 20px;
-        border-radius: 50%;
-        border: none;
-        margin: 5px 0;
-        transition: all 0.2s ease;
+    button {
+        width: 100% !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        border-radius: 5px !important;
+        border: none !important;
+        margin: 3px 0 !important;
+        transition: all 0.1s ease !important;
     }
     .stButton > button:active {
         transform: scale(0.95);
         opacity: 0.8;
     }
     .function-btn > button {
-        background-color: #4E505F;
-        color: white;
+        background-color: #4A4A4A !important;
+        color: white !important;
     }
     .number-btn > button {
-        background-color: #505050;
-        color: white;
-        font-weight: bold;
+        background-color: #666666 !important;
+        color: white !important;
+        font-weight: bold !important;
     }
     .clear-btn > button {
-        background-color: #A5A5A5;
-        color: black;
-        font-weight: bold;
+        background-color: #b3b3b3 !important;
+        color: black !important;
+        font-weight: bold !important;
     }
     .operator-btn > button {
-        background-color: #FF9F0A;
-        color: white;
-        font-weight: bold;
+        background-color: #FF9500 !important;
+        color: white !important;
+        font-weight: bold !important;
     }
     .equals-btn > button {
-        background-color: #FF9F0A;
-        color: white;
-        font-weight: bold;
-    }
-    .stButton > button:hover {
-        opacity: 0.9;
+        background-color: #FF9500 !important;
+        color: white !important;
+        font-weight: bold !important;
     }
     /* Fix button spacing issues */
     div[data-testid="column"] {
-        padding: 0 5px;
+        padding: 0 3px !important;
     }
     .main .block-container {
-        padding-top: 2rem;
+        padding-top: 1rem;
         padding-bottom: 1rem;
+        max-width: 100%;
     }
+    /* Fix expander styling */
+    .streamlit-expanderHeader {
+        font-size: 14px;
+        font-weight: normal;
+    }
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -113,7 +121,7 @@ if 'last_button' not in st.session_state:
 def calculate_factorial(input_value):
     try:
         # Convert input to integer
-        num = int(input_value)
+        num = int(float(input_value))
         
         # Factorial is only defined for non-negative integers
         if num < 0:
@@ -124,6 +132,16 @@ def calculate_factorial(input_value):
     
     except ValueError:
         return "Error: Invalid Input"
+    except OverflowError:
+        return "Error: Number too large"
+
+def safe_eval(expr):
+    """Safely evaluate an expression"""
+    try:
+        # Use ast.literal_eval for safety
+        return eval(expr)
+    except Exception as e:
+        raise ValueError(f"Invalid expression: {expr}")
 
 def evaluate_expression(expression):
     if not expression:
@@ -141,6 +159,9 @@ def evaluate_expression(expression):
             match = re.search(sqrt_pattern, expression)
             if match:
                 inner_expr = match.group(1)
+                inner_value = eval(inner_expr)
+                if inner_value < 0:
+                    return "Error: Cannot find square root of negative number"
                 expression = expression.replace(f"√({inner_expr})", f"math.sqrt({inner_expr})")
         
         # Handle cube root expressions
@@ -151,7 +172,7 @@ def evaluate_expression(expression):
                 inner_expr = match.group(1)
                 expression = expression.replace(f"∛({inner_expr})", f"({inner_expr})**(1/3)")
         
-        # Handle other functions
+        # Handle sin function
         sin_pattern = r'sin\((.*?)\)'
         while re.search(sin_pattern, expression):
             match = re.search(sin_pattern, expression)
@@ -159,6 +180,7 @@ def evaluate_expression(expression):
                 inner_expr = match.group(1)
                 expression = expression.replace(f"sin({inner_expr})", f"math.sin(math.radians({inner_expr}))")
         
+        # Handle cos function
         cos_pattern = r'cos\((.*?)\)'
         while re.search(cos_pattern, expression):
             match = re.search(cos_pattern, expression)
@@ -166,25 +188,37 @@ def evaluate_expression(expression):
                 inner_expr = match.group(1)
                 expression = expression.replace(f"cos({inner_expr})", f"math.cos(math.radians({inner_expr}))")
         
+        # Handle tan function
         tan_pattern = r'tan\((.*?)\)'
         while re.search(tan_pattern, expression):
             match = re.search(tan_pattern, expression)
             if match:
                 inner_expr = match.group(1)
+                angle_rad = math.radians(eval(inner_expr))
+                if abs(math.cos(angle_rad)) < 1e-10:
+                    return "Error: Tangent undefined at this angle"
                 expression = expression.replace(f"tan({inner_expr})", f"math.tan(math.radians({inner_expr}))")
         
+        # Handle log function (base 10)
         log_pattern = r'log\((.*?)\)'
         while re.search(log_pattern, expression):
             match = re.search(log_pattern, expression)
             if match:
                 inner_expr = match.group(1)
+                inner_value = eval(inner_expr)
+                if inner_value <= 0:
+                    return "Error: Cannot find log of zero or negative number"
                 expression = expression.replace(f"log({inner_expr})", f"math.log10({inner_expr})")
         
+        # Handle ln function (natural log)
         ln_pattern = r'ln\((.*?)\)'
         while re.search(ln_pattern, expression):
             match = re.search(ln_pattern, expression)
             if match:
                 inner_expr = match.group(1)
+                inner_value = eval(inner_expr)
+                if inner_value <= 0:
+                    return "Error: Cannot find natural log of zero or negative number"
                 expression = expression.replace(f"ln({inner_expr})", f"math.log({inner_expr})")
         
         # Handle x² expressions
@@ -209,7 +243,10 @@ def evaluate_expression(expression):
             match = re.search(factorial_pattern, expression)
             if match:
                 inner_expr = match.group(1)
-                fact_result = calculate_factorial(eval(inner_expr))
+                inner_value = eval(inner_expr)
+                fact_result = calculate_factorial(inner_value)
+                if fact_result.startswith("Error"):
+                    return fact_result
                 expression = expression.replace(f"!({inner_expr})", f"{fact_result}")
         
         # Handle percentage calculation
@@ -220,12 +257,18 @@ def evaluate_expression(expression):
         # Replace ÷ with /
         expression = expression.replace('÷', '/')
         
+        # Check for division by zero
+        if '/0' in expression.replace('/0.', '').replace('/0e', ''):
+            return "Error: Division by zero"
+            
         # Evaluate the expression and get the result
         result = eval(expression)
         
-        # Handle division by zero
-        if result == float('inf') or result == float('-inf'):
-            return "Error: Division by zero"
+        # Handle special cases
+        if math.isnan(result):
+            return "Error: Not a number"
+        if math.isinf(result):
+            return "Error: Infinite result"
         
         # Format the result to remove trailing zeros if it's a float
         if isinstance(result, float):
@@ -234,9 +277,8 @@ def evaluate_expression(expression):
                 return f"{result:.10e}"
             else:
                 # Remove trailing zeros
-                result_str = str(result)
-                if '.' in result_str:
-                    result_str = result_str.rstrip('0').rstrip('.')
+                result_str = f"{result:.10f}"
+                result_str = result_str.rstrip('0').rstrip('.')
                 return result_str
         else:
             return str(result)
@@ -389,8 +431,8 @@ def button_click(value):
     
     st.session_state.awaiting_second_operand = False
 
-# Create the calculator UI
-st.markdown('<h1 style="text-align: center; margin-bottom: 1rem;">Python Calculator</h1>', unsafe_allow_html=True)
+# Create the calculator UI with a smaller, more compact design
+st.markdown('<h2 style="text-align: center; margin-bottom: 0.5rem;">Python Calculator</h2>', unsafe_allow_html=True)
 
 # Calculator container
 st.markdown('<div class="calculator-container">', unsafe_allow_html=True)
