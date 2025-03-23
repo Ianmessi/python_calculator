@@ -1,0 +1,5 @@
+# Required for web interface
+streamlit>=1.15.0
+
+# Optional for desktop interface
+# PyQt5>=5.15.0 
