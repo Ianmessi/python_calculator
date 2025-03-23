@@ -14,59 +14,84 @@ st.set_page_config(
 st.markdown("""
 <style>
     .calculator-container {
-        max-width: 400px;
+        max-width: 350px;
         margin: 0 auto;
         background-color: #1C1C1E;
         border-radius: 15px;
-        padding: 15px;
+        padding: 20px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
     }
     .display-area {
         background-color: #1C1C1E;
         color: white;
         border-radius: 10px;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
         padding: 10px;
         text-align: right;
         font-family: Arial, sans-serif;
+        min-height: 90px;
+        border: 1px solid #333;
     }
     .expression-display {
         min-height: 25px;
         color: #8a8a8a;
-        font-size: 16px;
+        font-size: 18px;
         margin-bottom: 5px;
+        overflow-wrap: break-word;
     }
     .result-display {
         min-height: 50px;
-        font-size: 32px;
+        font-size: 36px;
         font-weight: bold;
-    }
-    .btn-container {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
+        overflow-wrap: break-word;
     }
     .stButton > button {
         width: 100%;
-        height: 60px;
+        height: 55px;
         font-size: 20px;
-        border-radius: 30px;
+        border-radius: 50%;
         border: none;
+        margin: 5px 0;
+        transition: all 0.2s ease;
+    }
+    .stButton > button:active {
+        transform: scale(0.95);
+        opacity: 0.8;
     }
     .function-btn > button {
         background-color: #4E505F;
         color: white;
     }
     .number-btn > button {
-        background-color: #32373B;
+        background-color: #505050;
         color: white;
+        font-weight: bold;
     }
     .clear-btn > button {
         background-color: #A5A5A5;
         color: black;
+        font-weight: bold;
     }
     .operator-btn > button {
         background-color: #FF9F0A;
         color: white;
+        font-weight: bold;
+    }
+    .equals-btn > button {
+        background-color: #FF9F0A;
+        color: white;
+        font-weight: bold;
+    }
+    .stButton > button:hover {
+        opacity: 0.9;
+    }
+    /* Fix button spacing issues */
+    div[data-testid="column"] {
+        padding: 0 5px;
+    }
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -365,7 +390,7 @@ def button_click(value):
     st.session_state.awaiting_second_operand = False
 
 # Create the calculator UI
-st.title("Python Calculator")
+st.markdown('<h1 style="text-align: center; margin-bottom: 1rem;">Python Calculator</h1>', unsafe_allow_html=True)
 
 # Calculator container
 st.markdown('<div class="calculator-container">', unsafe_allow_html=True)
@@ -378,9 +403,9 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Create calculator buttons
-# Row 1 - Clear, Backspace, Parentheses, Division
+# First row - Special Functions (Clear, Backspace, Parentheses, Division)
 col1, col2, col3, col4 = st.columns(4)
+
 with col1:
     st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
     if st.button("C"):
@@ -409,112 +434,9 @@ with col4:
         button_click("÷")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Row 2 - Scientific functions
+# Second row - Numbers 7-9 and Multiplication
 col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("sin"):
-        button_click("sin")
-    st.markdown('</div>', unsafe_allow_html=True)
 
-with col2:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("cos"):
-        button_click("cos")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col3:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("tan"):
-        button_click("tan")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col4:
-    st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("×"):
-        button_click("×")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Row 3 - More functions
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("log"):
-        button_click("log")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("ln"):
-        button_click("ln")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col3:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("√"):
-        button_click("√")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col4:
-    st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("-"):
-        button_click("-")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Row 4 - Special functions
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("x²"):
-        button_click("x²")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("x³"):
-        button_click("x³")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col3:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("!"):
-        button_click("!")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col4:
-    st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("+"):
-        button_click("+")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Row 5 - Constants and cube root
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("π"):
-        button_click("π")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("e"):
-        button_click("e")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col3:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("∛"):
-        button_click("∛")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col4:
-    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("%"):
-        button_click("%")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Row 6 - Numbers 7-9
-col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
     if st.button("7"):
@@ -535,12 +457,13 @@ with col3:
 
 with col4:
     st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("="):
-        button_click("=")
+    if st.button("×"):
+        button_click("×")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Row 7 - Numbers 4-6
-col1, col2, col3 = st.columns(3)
+# Third row - Numbers 4-6 and Subtraction
+col1, col2, col3, col4 = st.columns(4)
+
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
     if st.button("4"):
@@ -559,8 +482,15 @@ with col3:
         button_click("6")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Row 8 - Numbers 1-3
-col1, col2, col3 = st.columns(3)
+with col4:
+    st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
+    if st.button("-"):
+        button_click("-")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Fourth row - Numbers 1-3 and Addition
+col1, col2, col3, col4 = st.columns(4)
+
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
     if st.button("1"):
@@ -579,8 +509,15 @@ with col3:
         button_click("3")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Row 9 - Zero and decimal point
-col1, col2 = st.columns(2)
+with col4:
+    st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
+    if st.button("+"):
+        button_click("+")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Fifth row - Zero, Decimal Point, and Equals
+col1, col2, col3, col4 = st.columns(4)
+
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
     if st.button("0"):
@@ -592,6 +529,104 @@ with col2:
     if st.button("."):
         button_click(".")
     st.markdown('</div>', unsafe_allow_html=True)
+
+with col3:
+    st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+    if st.button("%"):
+        button_click("%")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col4:
+    st.markdown('<div class="equals-btn">', unsafe_allow_html=True)
+    if st.button("="):
+        button_click("=")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Scientific Functions section - use an expander for less frequently used functions
+with st.expander("Scientific Functions"):
+    # Row 1 - Trigonometric functions
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("sin"):
+            button_click("sin")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("cos"):
+            button_click("cos")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("tan"):
+            button_click("tan")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Row 2 - Logarithmic functions
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("log"):
+            button_click("log")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("ln"):
+            button_click("ln")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("√"):
+            button_click("√")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Row 3 - Powers and roots
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("x²"):
+            button_click("x²")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("x³"):
+            button_click("x³")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("∛"):
+            button_click("∛")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Row 4 - Constants and factorial
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("π"):
+            button_click("π")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("e"):
+            button_click("e")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown('<div class="function-btn">', unsafe_allow_html=True)
+        if st.button("!"):
+            button_click("!")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)  # Close calculator-container
 
