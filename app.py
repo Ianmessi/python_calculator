@@ -2,16 +2,16 @@ import streamlit as st
 import math
 import re
 import copy
-import ast
 
-# Set page configuration
+# Set page configuration with reduced resources
 st.set_page_config(
     page_title="Python Calculator",
     layout="centered",
     initial_sidebar_state="collapsed",
+    menu_items=None
 )
 
-# Custom CSS for better styling - improved colors and layout
+# Custom CSS with improved performance
 st.markdown("""
 <style>
     .calculator-container {
@@ -54,10 +54,6 @@ st.markdown("""
         border: none !important;
         margin: 3px 0 !important;
         transition: all 0.1s ease !important;
-    }
-    .stButton > button:active {
-        transform: scale(0.95);
-        opacity: 0.8;
     }
     .function-btn > button {
         background-color: #4A4A4A !important;
@@ -118,7 +114,17 @@ if 'awaiting_second_operand' not in st.session_state:
 if 'last_button' not in st.session_state:
     st.session_state.last_button = ''
 
+# Create a simple cache for repeated calculations
+if 'calculation_cache' not in st.session_state:
+    st.session_state.calculation_cache = {}
+
 def calculate_factorial(input_value):
+    """Calculate factorial with caching for speed"""
+    # Check cache first for better performance
+    cache_key = f"fact_{input_value}"
+    if cache_key in st.session_state.calculation_cache:
+        return st.session_state.calculation_cache[cache_key]
+    
     try:
         # Convert input to integer
         num = int(float(input_value))
@@ -127,25 +133,33 @@ def calculate_factorial(input_value):
         if num < 0:
             return "Error: Negative number"
         
-        # Calculate factorial
-        return str(math.factorial(num))
+        # Small optimization - handle common cases directly
+        if num <= 1:
+            result = "1"
+        elif num > 170:  # Python's factorial limit
+            result = "Error: Number too large"
+        else:
+            # Calculate factorial
+            result = str(math.factorial(num))
+        
+        # Cache the result for future use
+        st.session_state.calculation_cache[cache_key] = result
+        return result
     
     except ValueError:
         return "Error: Invalid Input"
     except OverflowError:
         return "Error: Number too large"
 
-def safe_eval(expr):
-    """Safely evaluate an expression"""
-    try:
-        # Use ast.literal_eval for safety
-        return eval(expr)
-    except Exception as e:
-        raise ValueError(f"Invalid expression: {expr}")
-
 def evaluate_expression(expression):
+    """Evaluate a mathematical expression with optimized performance"""
     if not expression:
         return "0"
+    
+    # Check cache first for better performance
+    cache_key = f"expr_{expression}"
+    if cache_key in st.session_state.calculation_cache:
+        return st.session_state.calculation_cache[cache_key]
     
     try:
         # Replace all instances of 'π' with 'math.pi'
@@ -153,16 +167,23 @@ def evaluate_expression(expression):
         # Replace all instances of 'e' with 'math.e'
         expression = expression.replace('e', 'math.e')
         
+        # Quick checks for division by zero before doing any regex
+        if '/0' in expression.replace('/0.', '').replace('/0e', ''):
+            return "Error: Division by zero"
+        
         # Handle square root expressions
         sqrt_pattern = r'√\((.*?)\)'
         while re.search(sqrt_pattern, expression):
             match = re.search(sqrt_pattern, expression)
             if match:
                 inner_expr = match.group(1)
-                inner_value = eval(inner_expr)
-                if inner_value < 0:
-                    return "Error: Cannot find square root of negative number"
-                expression = expression.replace(f"√({inner_expr})", f"math.sqrt({inner_expr})")
+                try:
+                    inner_value = eval(inner_expr)
+                    if inner_value < 0:
+                        return "Error: Cannot find square root of negative number"
+                    expression = expression.replace(f"√({inner_expr})", f"math.sqrt({inner_expr})")
+                except Exception:
+                    return "Error: Invalid expression in square root"
         
         # Handle cube root expressions
         cube_root_pattern = r'∛\((.*?)\)'
@@ -172,70 +193,44 @@ def evaluate_expression(expression):
                 inner_expr = match.group(1)
                 expression = expression.replace(f"∛({inner_expr})", f"({inner_expr})**(1/3)")
         
-        # Handle sin function
-        sin_pattern = r'sin\((.*?)\)'
-        while re.search(sin_pattern, expression):
-            match = re.search(sin_pattern, expression)
-            if match:
-                inner_expr = match.group(1)
-                expression = expression.replace(f"sin({inner_expr})", f"math.sin(math.radians({inner_expr}))")
+        # Handle function patterns 
+        # Optimized to reduce redundant code
+        function_patterns = {
+            r'sin\((.*?)\)': lambda x: f"math.sin(math.radians({x}))",
+            r'cos\((.*?)\)': lambda x: f"math.cos(math.radians({x}))",
+            r'tan\((.*?)\)': lambda x: f"math.tan(math.radians({x}))",
+            r'log\((.*?)\)': lambda x: f"math.log10({x})",
+            r'ln\((.*?)\)': lambda x: f"math.log({x})",
+            r'x²\((.*?)\)': lambda x: f"({x})**2",
+            r'x³\((.*?)\)': lambda x: f"({x})**3"
+        }
         
-        # Handle cos function
-        cos_pattern = r'cos\((.*?)\)'
-        while re.search(cos_pattern, expression):
-            match = re.search(cos_pattern, expression)
-            if match:
-                inner_expr = match.group(1)
-                expression = expression.replace(f"cos({inner_expr})", f"math.cos(math.radians({inner_expr}))")
-        
-        # Handle tan function
-        tan_pattern = r'tan\((.*?)\)'
-        while re.search(tan_pattern, expression):
-            match = re.search(tan_pattern, expression)
-            if match:
-                inner_expr = match.group(1)
-                angle_rad = math.radians(eval(inner_expr))
-                if abs(math.cos(angle_rad)) < 1e-10:
-                    return "Error: Tangent undefined at this angle"
-                expression = expression.replace(f"tan({inner_expr})", f"math.tan(math.radians({inner_expr}))")
-        
-        # Handle log function (base 10)
-        log_pattern = r'log\((.*?)\)'
-        while re.search(log_pattern, expression):
-            match = re.search(log_pattern, expression)
-            if match:
-                inner_expr = match.group(1)
-                inner_value = eval(inner_expr)
-                if inner_value <= 0:
-                    return "Error: Cannot find log of zero or negative number"
-                expression = expression.replace(f"log({inner_expr})", f"math.log10({inner_expr})")
-        
-        # Handle ln function (natural log)
-        ln_pattern = r'ln\((.*?)\)'
-        while re.search(ln_pattern, expression):
-            match = re.search(ln_pattern, expression)
-            if match:
-                inner_expr = match.group(1)
-                inner_value = eval(inner_expr)
-                if inner_value <= 0:
-                    return "Error: Cannot find natural log of zero or negative number"
-                expression = expression.replace(f"ln({inner_expr})", f"math.log({inner_expr})")
-        
-        # Handle x² expressions
-        squared_pattern = r'x²\((.*?)\)'
-        while re.search(squared_pattern, expression):
-            match = re.search(squared_pattern, expression)
-            if match:
-                inner_expr = match.group(1)
-                expression = expression.replace(f"x²({inner_expr})", f"({inner_expr})**2")
-        
-        # Handle x³ expressions
-        cubed_pattern = r'x³\((.*?)\)'
-        while re.search(cubed_pattern, expression):
-            match = re.search(cubed_pattern, expression)
-            if match:
-                inner_expr = match.group(1)
-                expression = expression.replace(f"x³({inner_expr})", f"({inner_expr})**3")
+        # Process all function patterns
+        for pattern, replacement_func in function_patterns.items():
+            while re.search(pattern, expression):
+                match = re.search(pattern, expression)
+                if match:
+                    inner_expr = match.group(1)
+                    
+                    # Special checks for functions with domain restrictions
+                    if 'log' in pattern or 'ln' in pattern:
+                        try:
+                            inner_value = eval(inner_expr)
+                            if inner_value <= 0:
+                                return f"Error: Cannot find {'log' if 'log10' in replacement_func(inner_expr) else 'ln'} of zero or negative number"
+                        except Exception:
+                            pass
+                    
+                    if 'tan' in pattern:
+                        try:
+                            angle_rad = math.radians(eval(inner_expr))
+                            if abs(math.cos(angle_rad)) < 1e-10:
+                                return "Error: Tangent undefined at this angle"
+                        except Exception:
+                            pass
+                    
+                    # Replace the pattern
+                    expression = expression.replace(match.group(0), replacement_func(inner_expr))
                 
         # Handle factorial expressions
         factorial_pattern = r'!\((.*?)\)'
@@ -243,26 +238,30 @@ def evaluate_expression(expression):
             match = re.search(factorial_pattern, expression)
             if match:
                 inner_expr = match.group(1)
-                inner_value = eval(inner_expr)
-                fact_result = calculate_factorial(inner_value)
-                if fact_result.startswith("Error"):
-                    return fact_result
-                expression = expression.replace(f"!({inner_expr})", f"{fact_result}")
+                try:
+                    inner_value = eval(inner_expr)
+                    fact_result = calculate_factorial(inner_value)
+                    if fact_result.startswith("Error"):
+                        return fact_result
+                    expression = expression.replace(f"!({inner_expr})", f"{fact_result}")
+                except Exception:
+                    return "Error: Invalid expression in factorial"
         
         # Handle percentage calculation
         expression = expression.replace('%', '/100')
         
-        # Replace × with *
-        expression = expression.replace('×', '*')
-        # Replace ÷ with /
-        expression = expression.replace('÷', '/')
+        # Replace × with * and ÷ with /
+        expression = expression.replace('×', '*').replace('÷', '/')
         
-        # Check for division by zero
-        if '/0' in expression.replace('/0.', '').replace('/0e', ''):
-            return "Error: Division by zero"
-            
         # Evaluate the expression and get the result
-        result = eval(expression)
+        try:
+            result = eval(expression)
+        except ZeroDivisionError:
+            return "Error: Division by zero"
+        except SyntaxError:
+            return "Error: Invalid syntax"
+        except Exception as e:
+            return f"Error: {str(e)}"
         
         # Handle special cases
         if math.isnan(result):
@@ -270,23 +269,31 @@ def evaluate_expression(expression):
         if math.isinf(result):
             return "Error: Infinite result"
         
-        # Format the result to remove trailing zeros if it's a float
+        # Format the result efficiently
         if isinstance(result, float):
             # If the result is very small or very large, use scientific notation
             if abs(result) < 0.0001 or abs(result) > 10000000:
-                return f"{result:.10e}"
+                formatted_result = f"{result:.10e}"
             else:
-                # Remove trailing zeros
-                result_str = f"{result:.10f}"
-                result_str = result_str.rstrip('0').rstrip('.')
-                return result_str
+                # Remove trailing zeros efficiently
+                formatted_result = f"{result:.10f}".rstrip('0').rstrip('.')
+                if '.' not in formatted_result:
+                    formatted_result = f"{int(result)}"
         else:
-            return str(result)
+            formatted_result = str(result)
+        
+        # Cache the result for future use
+        if len(st.session_state.calculation_cache) > 100:  # Limit cache size
+            st.session_state.calculation_cache.clear()
+        st.session_state.calculation_cache[cache_key] = formatted_result
+        
+        return formatted_result
     
     except Exception as e:
         return f"Error: {str(e)}"
 
 def button_click(value):
+    """Handle button clicks with optimized performance"""
     # If awaiting second operand and a number is pressed, start a new expression
     if st.session_state.awaiting_second_operand and value.isdigit():
         st.session_state.display = value
@@ -294,7 +301,7 @@ def button_click(value):
         st.session_state.awaiting_second_operand = False
         return
     
-    # If the current display is a result and we're not in function mode, clear it when a new button is pressed
+    # Get current display value
     current = st.session_state.display
     
     # Don't clear the screen when pressing equals, backspace, or in function mode
@@ -319,8 +326,8 @@ def button_click(value):
     # Update the last button pressed
     st.session_state.last_button = value
     
-    # Handle the Clear button
-    if value == 'C':
+    # Handle specific button actions
+    if value == 'C':  # Clear button
         st.session_state.display = '0'
         st.session_state.expression = ''
         st.session_state.function_mode = False
@@ -328,8 +335,7 @@ def button_click(value):
         st.session_state.awaiting_second_operand = False
         return
     
-    # Handle the Backspace button
-    if value == '⌫':
+    elif value == '⌫':  # Backspace button
         if len(current) > 1:
             st.session_state.display = current[:-1]
             if len(st.session_state.expression) > 0:
@@ -340,8 +346,7 @@ def button_click(value):
                 st.session_state.expression = ''
         return
     
-    # Handle the Equals button
-    if value == '=':
+    elif value == '=':  # Equals button
         try:
             if st.session_state.function_mode:
                 # If we're in function mode, evaluate the function with the current expression
@@ -356,10 +361,7 @@ def button_click(value):
                 if current.startswith('Error'):
                     return
                 
-                expr_to_evaluate = copy.copy(st.session_state.expression)
-                if not expr_to_evaluate:
-                    expr_to_evaluate = current
-                
+                expr_to_evaluate = st.session_state.expression or current
                 result = evaluate_expression(expr_to_evaluate)
                 st.session_state.display = result
             
@@ -370,7 +372,7 @@ def button_click(value):
         return
     
     # Handle functions (sin, cos, tan, log, ln, √, x², x³, !, ∛)
-    if value in ['sin', 'cos', 'tan', 'log', 'ln', '√', 'x²', 'x³', '!', '∛']:
+    elif value in ['sin', 'cos', 'tan', 'log', 'ln', '√', 'x²', 'x³', '!', '∛']:
         if current.startswith('Error'):
             return
         
@@ -380,7 +382,7 @@ def button_click(value):
         return
     
     # Handle special constants (pi, e)
-    if value in ['π', 'e']:
+    elif value in ['π', 'e']:
         if current == '0' or st.session_state.awaiting_second_operand:
             st.session_state.display = value
             st.session_state.expression = value
@@ -392,42 +394,43 @@ def button_click(value):
         return
     
     # Handle other buttons (numbers, operators, parentheses)
-    if current == '0' and value.isdigit():
-        # Replace the initial 0 with the digit
-        st.session_state.display = value
-        st.session_state.expression = value
-    elif current.startswith('Error'):
-        # If there's an error, start fresh with the new input
-        if value.isdigit() or value == '.':
+    else:
+        if current == '0' and value.isdigit():
+            # Replace the initial 0 with the digit
             st.session_state.display = value
             st.session_state.expression = value
-        elif value in ['+', '-', '×', '÷']:
-            st.session_state.display = '0' + value
-            st.session_state.expression = '0' + value
-    elif st.session_state.function_mode:
-        # If in function mode, build the function argument
-        if st.session_state.display == '':
-            # Start the function argument
-            if value.isdigit() or value == '.' or value == '-':
+        elif current.startswith('Error'):
+            # If there's an error, start fresh with the new input
+            if value.isdigit() or value == '.':
                 st.session_state.display = value
-            elif value == '(':
-                st.session_state.display = value
-            # If operator is pressed directly, use 0 as the first operand
-            elif value in ['+', '-', '×', '÷'] and st.session_state.display == '':
+                st.session_state.expression = value
+            elif value in ['+', '-', '×', '÷']:
                 st.session_state.display = '0' + value
+                st.session_state.expression = '0' + value
+        elif st.session_state.function_mode:
+            # If in function mode, build the function argument
+            if st.session_state.display == '':
+                # Start the function argument
+                if value.isdigit() or value == '.' or value == '-':
+                    st.session_state.display = value
+                elif value == '(':
+                    st.session_state.display = value
+                # If operator is pressed directly, use 0 as the first operand
+                elif value in ['+', '-', '×', '÷'] and st.session_state.display == '':
+                    st.session_state.display = '0' + value
+            else:
+                # Continue building the function argument
+                st.session_state.display += value
         else:
-            # Continue building the function argument
-            st.session_state.display += value
-    else:
-        # Normal operation - update the display and expression
-        if value in ['+', '-', '×', '÷', '.', '(', ')', '%']:
-            # For operators, update expression directly
-            st.session_state.display += value
-            st.session_state.expression += value
-        else:
-            # For numbers, update both
-            st.session_state.display += value
-            st.session_state.expression += value
+            # Normal operation - update the display and expression
+            if value in ['+', '-', '×', '÷', '.', '(', ')', '%']:
+                # For operators, update expression directly
+                st.session_state.display += value
+                st.session_state.expression += value
+            else:
+                # For numbers, update both
+                st.session_state.display += value
+                st.session_state.expression += value
     
     st.session_state.awaiting_second_operand = False
 
@@ -450,19 +453,19 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
-    if st.button("C"):
+    if st.button("C", key="btn_clear"):
         button_click("C")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
-    if st.button("⌫"):
+    if st.button("⌫", key="btn_backspace"):
         button_click("⌫")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
     st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("()"):
+    if st.button("()", key="btn_parentheses"):
         # Toggle between opening and closing parenthesis
         if '(' in st.session_state.display and st.session_state.display.count('(') > st.session_state.display.count(')'):
             button_click(")")
@@ -472,7 +475,7 @@ with col3:
 
 with col4:
     st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("÷"):
+    if st.button("÷", key="btn_divide"):
         button_click("÷")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -481,25 +484,25 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("7"):
+    if st.button("7", key="btn_7"):
         button_click("7")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("8"):
+    if st.button("8", key="btn_8"):
         button_click("8")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("9"):
+    if st.button("9", key="btn_9"):
         button_click("9")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col4:
     st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("×"):
+    if st.button("×", key="btn_multiply"):
         button_click("×")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -508,25 +511,25 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("4"):
+    if st.button("4", key="btn_4"):
         button_click("4")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("5"):
+    if st.button("5", key="btn_5"):
         button_click("5")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("6"):
+    if st.button("6", key="btn_6"):
         button_click("6")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col4:
     st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("-"):
+    if st.button("-", key="btn_subtract"):
         button_click("-")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -535,25 +538,25 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("1"):
+    if st.button("1", key="btn_1"):
         button_click("1")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("2"):
+    if st.button("2", key="btn_2"):
         button_click("2")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("3"):
+    if st.button("3", key="btn_3"):
         button_click("3")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col4:
     st.markdown('<div class="operator-btn">', unsafe_allow_html=True)
-    if st.button("+"):
+    if st.button("+", key="btn_add"):
         button_click("+")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -562,25 +565,25 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("0"):
+    if st.button("0", key="btn_0"):
         button_click("0")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown('<div class="number-btn">', unsafe_allow_html=True)
-    if st.button("."):
+    if st.button(".", key="btn_decimal"):
         button_click(".")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
     st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-    if st.button("%"):
+    if st.button("%", key="btn_percent"):
         button_click("%")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col4:
     st.markdown('<div class="equals-btn">', unsafe_allow_html=True)
-    if st.button("="):
+    if st.button("=", key="btn_equals"):
         button_click("=")
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -591,19 +594,19 @@ with st.expander("Scientific Functions"):
     
     with col1:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("sin"):
+        if st.button("sin", key="btn_sin"):
             button_click("sin")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("cos"):
+        if st.button("cos", key="btn_cos"):
             button_click("cos")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("tan"):
+        if st.button("tan", key="btn_tan"):
             button_click("tan")
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -612,19 +615,19 @@ with st.expander("Scientific Functions"):
     
     with col1:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("log"):
+        if st.button("log", key="btn_log"):
             button_click("log")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("ln"):
+        if st.button("ln", key="btn_ln"):
             button_click("ln")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("√"):
+        if st.button("√", key="btn_sqrt"):
             button_click("√")
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -633,19 +636,19 @@ with st.expander("Scientific Functions"):
     
     with col1:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("x²"):
+        if st.button("x²", key="btn_square"):
             button_click("x²")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("x³"):
+        if st.button("x³", key="btn_cube"):
             button_click("x³")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("∛"):
+        if st.button("∛", key="btn_cbrt"):
             button_click("∛")
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -654,19 +657,19 @@ with st.expander("Scientific Functions"):
     
     with col1:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("π"):
+        if st.button("π", key="btn_pi"):
             button_click("π")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("e"):
+        if st.button("e", key="btn_e"):
             button_click("e")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="function-btn">', unsafe_allow_html=True)
-        if st.button("!"):
+        if st.button("!", key="btn_factorial"):
             button_click("!")
         st.markdown('</div>', unsafe_allow_html=True)
 
