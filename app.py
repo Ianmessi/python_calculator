@@ -230,7 +230,8 @@ def evaluate_expression(expression):
                             pass
                     
                     # Replace the pattern
-                    expression = expression.replace(match.group(0), replacement_func(inner_expr))
+                    replacement = replacement_func(inner_expr)
+                    expression = expression.replace(match.group(0), replacement)
                 
         # Handle factorial expressions
         factorial_pattern = r'!\((.*?)\)'
@@ -376,9 +377,24 @@ def button_click(value):
         if current.startswith('Error'):
             return
         
-        st.session_state.function_mode = True
-        st.session_state.function_name = value
-        st.session_state.display = ''
+        if current != '0' and not st.session_state.awaiting_second_operand:
+            # If display already has content and we're not awaiting second operand,
+            # append function to expression with current content as argument
+            function_expr = f"{value}({current})"
+            st.session_state.display = function_expr
+            st.session_state.expression = function_expr
+            # Immediately evaluate the expression
+            result = evaluate_expression(function_expr)
+            if st.session_state.last_button == '=':
+                st.session_state.display = result
+            else:
+                st.session_state.expression = function_expr
+                st.session_state.display = result
+        else:
+            # Otherwise enter function mode to input an argument
+            st.session_state.function_mode = True
+            st.session_state.function_name = value
+            st.session_state.display = ''
         return
     
     # Handle special constants (pi, e)
